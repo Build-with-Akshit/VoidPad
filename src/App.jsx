@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import Sidebar from './components/Sidebar';
@@ -8,21 +8,17 @@ import {
   Minus, 
   Square, 
   X, 
-  Loader2, 
   FileText,
   ChevronsLeft,
   ChevronsRight
 } from 'lucide-react';
 
 export default function App() {
-  const [workspacePath, setWorkspacePath] = useState(localStorage.getItem('voidpad_workspace') || null);
   const [pagesTree, setPagesTree] = useState([]);
   const [activePageId, setActivePageId] = useState(null);
-  const [activePageData, setActivePageData] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('voidpad_dark_mode') !== 'false');
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isLoadingPage, setIsLoadingPage] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
@@ -35,40 +31,7 @@ export default function App() {
     localStorage.setItem('voidpad_dark_mode', isDarkMode);
   }, [isDarkMode]);
 
-  const refreshWorkspace = useCallback(async () => {
-    if (!workspacePath) return;
-    try {
-      const treeJson = await invoke('read_workspace', { workspacePath });
-      const tree = JSON.parse(treeJson);
-      setPagesTree(tree);
-    } catch (error) {
-      console.error('Failed to read workspace:', error);
-    }
-  }, [workspacePath]);
-
-  useEffect(() => {
-    refreshWorkspace();
-  }, [refreshWorkspace]);
-
-  // Auto-select first page when workspace loads
-  useEffect(() => {
-    if (!activePageId && pagesTree.length > 0) {
-      const firstPage = findFirstPage(pagesTree);
-      if (firstPage) handleSelectPage(firstPage.id);
-    }
-  }, [pagesTree]);
-
-  const findFirstPage = (nodes) => {
-    for (const node of nodes) {
-      if (node.type === 'page') return node;
-      if (node.children?.length > 0) {
-        const found = findFirstPage(node.children);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
-
+  // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
@@ -102,109 +65,20 @@ export default function App() {
     try { await getCurrentWindow().close(); } catch(e) {}
   };
 
-  const handleSelectWorkspace = async () => {
-    try {
-      const path = await invoke('select_workspace');
-      if (path) {
-        setWorkspacePath(path);
-        localStorage.setItem('voidpad_workspace', path);
-        setActivePageId(null);
-        setActivePageData(null);
-      }
-    } catch (error) {
-      console.error('Failed to select workspace:', error);
+  const handleSelectPage = (pageId) => {
+    setActivePageId(pageId);
+  };
+
+  const handleRenamePageCallback = (pageId, newName, newPageId) => {
+    if (activePageId === pageId) {
+      setActivePageId(newPageId);
     }
   };
 
-  const handleSelectPage = async (pageId) => {
-    if (!workspacePath) return;
-    setIsLoadingPage(true);
-    try {
-      const dataStr = await invoke('read_page', { workspacePath, pageId });
-      const data = JSON.parse(dataStr);
-      setActivePageId(pageId);
-      setActivePageData(data);
-    } catch (error) {
-      console.error('Error loading page:', error);
-    } finally {
-      setIsLoadingPage(false);
+  const handleDeletePageCallback = (pageId) => {
+    if (activePageId === pageId) {
+      setActivePageId(null);
     }
-  };
-
-  const handleCreatePage = async (parentId) => {
-    if (!workspacePath) return;
-    try {
-      const resultStr = await invoke('create_page', { workspacePath, parentId, name: 'Untitled' });
-      const result = JSON.parse(resultStr);
-      if (result.success) {
-        await refreshWorkspace();
-        handleSelectPage(result.pageId);
-      }
-    } catch (error) {
-      console.error('Failed to create page:', error);
-    }
-  };
-
-  const handleRenamePage = async (pageId, newName) => {
-    if (!workspacePath) return;
-    try {
-      const resultStr = await invoke('rename_page', { workspacePath, pageId, newName });
-      const result = JSON.parse(resultStr);
-      if (result.success) {
-        await refreshWorkspace();
-        if (activePageId === pageId) {
-          setActivePageId(result.newPageId);
-          setActivePageData(prev => ({ ...prev, title: newName }));
-        }
-      }
-    } catch (error) {
-      console.error('Failed to rename page:', error);
-    }
-  };
-
-  const handleDeletePage = async (pageId) => {
-    if (!workspacePath) return;
-    try {
-      const resultStr = await invoke('delete_page', { workspacePath, pageId });
-      const result = JSON.parse(resultStr);
-      if (result.success) {
-        if (activePageId === pageId) {
-          setActivePageId(null);
-          setActivePageData(null);
-        }
-        await refreshWorkspace();
-      }
-    } catch (error) {
-      console.error('Failed to delete page:', error);
-    }
-  };
-
-  const handleSavePage = async (title, markdownText, metadata) => {
-    if (!workspacePath || !activePageId) return;
-    try {
-      await invoke('save_page', { 
-        workspacePath, 
-        pageId: activePageId, 
-        title, 
-        markdownText, 
-        metadata 
-      });
-      setActivePageData(prev => ({ ...prev, title, metadata, markdownText }));
-      if (activePageData?.title !== title) {
-        await refreshWorkspace();
-      }
-    } catch (error) {
-      console.error('Failed to save page:', error);
-    }
-  };
-
-  const handleDisconnectWorkspace = () => {
-    setWorkspacePath(null);
-    setPagesTree([]);
-    setActivePageId(null);
-    setActivePageData(null);
-    localStorage.removeItem('voidpad_workspace');
-    setSettingsOpen(false);
   };
 
   // Window controls component
@@ -222,26 +96,6 @@ export default function App() {
     </div>
   );
 
-  if (!workspacePath) {
-    return (
-      <div className="welcome-container">
-        <div className="window-titlebar" data-tauri-drag-region>
-          <span>VoidPad</span>
-          <WindowControls />
-        </div>
-        <div className="welcome-card">
-          <div className="welcome-logo">VoidPad</div>
-          <p className="welcome-subtitle">
-            A fully offline, local-first workspace for your notes. Everything is saved as standard Markdown on your computer.
-          </p>
-          <button className="btn-primary" onClick={handleSelectWorkspace}>
-            Open Workspace Folder
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="app-container">
       <div className="window-titlebar" data-tauri-drag-region>
@@ -250,19 +104,18 @@ export default function App() {
       </div>
 
       <Sidebar 
-        pagesTree={pagesTree}
         activePageId={activePageId}
-        workspaceName={workspacePath.split(/[\\/]/).pop()}
+        workspaceName="VoidPad Notes"
         isDarkMode={isDarkMode}
         collapsed={sidebarCollapsed}
         onSelectPage={handleSelectPage}
-        onCreatePage={handleCreatePage}
-        onRenamePage={handleRenamePage}
-        onDeletePage={handleDeletePage}
+        onRenamePage={handleRenamePageCallback}
+        onDeletePage={handleDeletePageCallback}
         onToggleTheme={() => setIsDarkMode(prev => !prev)}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+        onTreeUpdate={(tree) => setPagesTree(tree)}
       />
 
       {/* Sidebar toggle button (visible when collapsed) */}
@@ -276,28 +129,30 @@ export default function App() {
       </button>
 
       <div className="editor-panel">
-        {isLoadingPage ? (
-          <div className="empty-state">
-            <Loader2 className="animate-spin" size={28} color="var(--accent-color)" />
-            <p>Loading page...</p>
-          </div>
-        ) : activePageId && activePageData ? (
+        {activePageId ? (
           <Editor 
             key={activePageId}
-            workspacePath={workspacePath}
             pageId={activePageId}
-            initialTitle={activePageData.title}
-            initialMarkdown={activePageData.markdownText}
-            initialMetadata={activePageData.metadata}
             isDarkMode={isDarkMode}
-            onSave={handleSavePage}
+            onTitleChange={(id, newTitle) => {
+              // Trigger Sidebar refresh
+              const refreshEvent = new CustomEvent('refresh-sidebar-notes');
+              window.dispatchEvent(refreshEvent);
+            }}
           />
         ) : (
           <div className="empty-state">
             <FileText size={40} color="var(--border-color)" strokeWidth={1.5} />
             <h2>No Page Selected</h2>
             <p>Select a page from the sidebar or create a new one to start writing.</p>
-            <button className="btn-primary" onClick={() => handleCreatePage(null)} style={{ marginTop: 8 }}>
+            <button 
+              className="btn-primary" 
+              onClick={() => {
+                const createEvent = new CustomEvent('create-sidebar-note');
+                window.dispatchEvent(createEvent);
+              }} 
+              style={{ marginTop: 8 }}
+            >
               + New Page
             </button>
           </div>
@@ -326,25 +181,17 @@ export default function App() {
             </div>
             
             <div className="settings-row">
-              <label>Workspace</label>
+              <label>Storage Location</label>
               <div className="settings-input-group">
-                <input type="text" className="settings-input" value={workspacePath} readOnly />
-                <button className="btn-secondary" onClick={handleSelectWorkspace}>Change</button>
+                <input type="text" className="settings-input" value="Documents/VoidPad_Notes" readOnly />
               </div>
             </div>
 
             <div className="settings-row">
-              <label>Actions</label>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.4 }}>
-                Disconnecting removes the link to this folder. Your Markdown files remain untouched.
+              <label>Info</label>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                VoidPad is running completely offline. Your notes are stored as standard Markdown files under your system's Documents folder.
               </p>
-              <button 
-                className="btn-secondary" 
-                style={{ color: 'var(--red)', borderColor: 'rgba(235, 87, 87, 0.2)' }}
-                onClick={handleDisconnectWorkspace}
-              >
-                Disconnect Workspace
-              </button>
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { 
   ChevronRight, 
   Plus, 
@@ -14,23 +15,88 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar({
-  pagesTree,
   activePageId,
   workspaceName,
   isDarkMode,
   collapsed,
   onSelectPage,
-  onCreatePage,
   onRenamePage,
   onDeletePage,
   onToggleTheme,
   onOpenSearch,
   onOpenSettings,
-  onToggleCollapse
+  onToggleCollapse,
+  onTreeUpdate
 }) {
+  const [pagesTree, setPagesTree] = useState([]);
   const [expandedNodes, setExpandedNodes] = useState({});
   const [editingNodeId, setEditingNodeId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+
+  const refreshNotes = async () => {
+    try {
+      const treeJson = await invoke('get_all_notes');
+      const tree = JSON.parse(treeJson);
+      setPagesTree(tree);
+      if (onTreeUpdate) onTreeUpdate(tree);
+    } catch (error) {
+      console.error('Failed to get notes:', error);
+    }
+  };
+
+  useEffect(() => {
+    refreshNotes();
+
+    const handleRefresh = () => refreshNotes();
+    const handleCreate = () => handleCreatePage(null);
+
+    window.addEventListener('refresh-sidebar-notes', handleRefresh);
+    window.addEventListener('create-sidebar-note', handleCreate);
+
+    return () => {
+      window.removeEventListener('refresh-sidebar-notes', handleRefresh);
+      window.removeEventListener('create-sidebar-note', handleCreate);
+    };
+  }, []);
+
+  const handleCreatePage = async (parentId) => {
+    try {
+      const resultStr = await invoke('create_note', { parentId, name: 'Untitled' });
+      const result = JSON.parse(resultStr);
+      if (result.success) {
+        await refreshNotes();
+        onSelectPage(result.pageId);
+      }
+    } catch (error) {
+      console.error('Failed to create page:', error);
+    }
+  };
+
+  const handleRenamePage = async (pageId, newName) => {
+    try {
+      const resultStr = await invoke('rename_note', { pageId, newName });
+      const result = JSON.parse(resultStr);
+      if (result.success) {
+        await refreshNotes();
+        onRenamePage(pageId, newName, result.newPageId);
+      }
+    } catch (error) {
+      console.error('Failed to rename page:', error);
+    }
+  };
+
+  const handleDeletePage = async (pageId) => {
+    try {
+      const resultStr = await invoke('delete_note', { pageId });
+      const result = JSON.parse(resultStr);
+      if (result.success) {
+        await refreshNotes();
+        onDeletePage(pageId);
+      }
+    } catch (error) {
+      console.error('Failed to delete page:', error);
+    }
+  };
 
   const toggleExpand = (nodeId, e) => {
     e.stopPropagation();
@@ -52,7 +118,7 @@ export default function Sidebar({
   const submitRename = (nodeId, e) => {
     e.stopPropagation();
     const trimmed = renameValue.trim();
-    if (trimmed) onRenamePage(nodeId, trimmed);
+    if (trimmed) handleRenamePage(nodeId, trimmed);
     setEditingNodeId(null);
   };
 
@@ -108,7 +174,7 @@ export default function Sidebar({
 
             {!isEditing && (
               <div className="tree-node-actions" onClick={e => e.stopPropagation()}>
-                <button className="tree-action-btn" onClick={() => onCreatePage(node.id)} title="Add sub-page">
+                <button className="tree-action-btn" onClick={() => handleCreatePage(node.id)} title="Add sub-page">
                   <Plus size={12} />
                 </button>
                 <button className="tree-action-btn" onClick={(e) => startRename(node, e)} title="Rename">
@@ -116,7 +182,7 @@ export default function Sidebar({
                 </button>
                 <button 
                   className="tree-action-btn" 
-                  onClick={() => { if (confirm(`Move "${node.name}" to Recycle Bin?`)) onDeletePage(node.id); }}
+                  onClick={() => { if (confirm(`Move "${node.name}" to Recycle Bin?`)) handleDeletePage(node.id); }}
                   title="Delete"
                 >
                   <Trash2 size={11} />
@@ -155,7 +221,7 @@ export default function Sidebar({
       <div className="sidebar-scrollable">
         <div className="sidebar-section-title">
           <span>Pages</span>
-          <button className="tree-action-btn" onClick={() => onCreatePage(null)} title="New page" style={{ padding: 0 }}>
+          <button className="tree-action-btn" onClick={() => handleCreatePage(null)} title="New page" style={{ padding: 0 }}>
             <Plus size={14} />
           </button>
         </div>
@@ -172,7 +238,7 @@ export default function Sidebar({
       </div>
 
       {/* New Page button at bottom */}
-      <button className="sidebar-new-page-btn" onClick={() => onCreatePage(null)}>
+      <button className="sidebar-new-page-btn" onClick={() => handleCreatePage(null)}>
         <Plus size={16} />
         New page
       </button>

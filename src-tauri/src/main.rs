@@ -4,10 +4,9 @@
 )]
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
-use tauri::{Builder, AppHandle};
-use tauri_plugin_dialog::DialogExt;
+use tauri::{Builder, AppHandle, Manager};
 use gray_matter::engine::YAML;
 use gray_matter::Matter;
 
@@ -47,16 +46,13 @@ struct OperationResult {
     error: Option<String>,
 }
 
-#[tauri::command]
-async fn select_workspace(app: AppHandle) -> Result<Option<String>, String> {
-    let (tx, rx) = std::sync::mpsc::channel();
-    app.dialog().file().pick_folder(move |folder_path| {
-        let _ = tx.send(folder_path.map(|p| p.to_string()));
-    });
-    match rx.recv() {
-        Ok(result) => Ok(result),
-        Err(_) => Ok(None),
+fn get_notes_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let document_dir = app.path().document_dir().map_err(|e| e.to_string())?;
+    let notes_dir = document_dir.join("VoidPad_Notes");
+    if !notes_dir.exists() {
+        fs::create_dir_all(&notes_dir).map_err(|e| e.to_string())?;
     }
+    Ok(notes_dir)
 }
 
 fn build_tree(dir_path: &Path, base_path: &Path) -> Vec<TreeNode> {
@@ -97,26 +93,18 @@ fn build_tree(dir_path: &Path, base_path: &Path) -> Vec<TreeNode> {
 }
 
 #[tauri::command]
-async fn read_workspace(workspace_path: String) -> Result<String, String> {
-    let path = Path::new(&workspace_path);
-    if !path.exists() {
-        return Err("Workspace does not exist".into());
-    }
-    
-    let assets_dir = path.join(".assets");
-    if !assets_dir.exists() {
-        let _ = fs::create_dir_all(&assets_dir);
-    }
-
-    let tree = build_tree(path, path);
+async fn get_all_notes(app: AppHandle) -> Result<String, String> {
+    let notes_dir = get_notes_dir(&app)?;
+    let tree = build_tree(&notes_dir, &notes_dir);
     serde_json::to_string(&tree).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-async fn read_page(workspace_path: String, page_id: String) -> Result<String, String> {
-    let file_path = Path::new(&workspace_path).join(format!("{}.md", page_id));
+async fn read_note(app: AppHandle, page_id: String) -> Result<String, String> {
+    let notes_dir = get_notes_dir(&app)?;
+    let file_path = notes_dir.join(format!("{}.md", page_id));
     if !file_path.exists() {
-        return Err("Page not found".into());
+        return Err("Note not found".into());
     }
 
     let content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
@@ -150,14 +138,15 @@ async fn read_page(workspace_path: String, page_id: String) -> Result<String, St
 }
 
 #[tauri::command]
-async fn save_page(
-    workspace_path: String,
+async fn save_note(
+    app: AppHandle,
     page_id: String,
     title: String,
     markdown_text: String,
     metadata: PageMetadata
 ) -> Result<String, String> {
-    let file_path = Path::new(&workspace_path).join(format!("{}.md", page_id));
+    let notes_dir = get_notes_dir(&app)?;
+    let file_path = notes_dir.join(format!("{}.md", page_id));
     
     let frontmatter = format!(
         "---\ntitle: \"{}\"\nicon: \"{}\"\ncover: \"{}\"\n---\n\n{}",
@@ -184,13 +173,13 @@ async fn save_page(
 }
 
 #[tauri::command]
-async fn create_page(
-    workspace_path: String,
+async fn create_note(
+    app: AppHandle,
     parent_id: Option<String>,
     name: String
 ) -> Result<String, String> {
-    let base_path = Path::new(&workspace_path);
-    let mut target_dir = base_path.to_path_buf();
+    let notes_dir = get_notes_dir(&app)?;
+    let mut target_dir = notes_dir.clone();
     
     if let Some(ref pid) = parent_id {
         target_dir = target_dir.join(pid);
@@ -226,19 +215,19 @@ async fn create_page(
 }
 
 #[tauri::command]
-async fn rename_page(
-    workspace_path: String,
+async fn rename_note(
+    app: AppHandle,
     page_id: String,
     new_name: String
 ) -> Result<String, String> {
-    let base_path = Path::new(&workspace_path);
-    let old_file = base_path.join(format!("{}.md", page_id));
+    let notes_dir = get_notes_dir(&app)?;
+    let old_file = notes_dir.join(format!("{}.md", page_id));
     
     if !old_file.exists() {
         return Err("File not found".into());
     }
 
-    let parent_dir = old_file.parent().unwrap_or(base_path);
+    let parent_dir = old_file.parent().unwrap_or(&notes_dir);
     let mut final_name = new_name.clone();
     let mut new_file = parent_dir.join(format!("{}.md", final_name));
     
@@ -251,13 +240,13 @@ async fn rename_page(
 
     fs::rename(&old_file, &new_file).map_err(|e| e.to_string())?;
 
-    let old_dir = base_path.join(&page_id);
+    let old_dir = notes_dir.join(&page_id);
     let new_dir = parent_dir.join(&final_name);
     if old_dir.exists() && old_dir.is_dir() {
         let _ = fs::rename(&old_dir, &new_dir);
     }
 
-    let parent_rel = parent_dir.strip_prefix(base_path).unwrap_or(Path::new("")).to_string_lossy().replace("\\", "/");
+    let parent_rel = parent_dir.strip_prefix(&notes_dir).unwrap_or(Path::new("")).to_string_lossy().replace("\\", "/");
     let new_id = if parent_rel.is_empty() {
         final_name
     } else {
@@ -275,13 +264,10 @@ async fn rename_page(
 }
 
 #[tauri::command]
-async fn delete_page(
-    workspace_path: String,
-    page_id: String
-) -> Result<String, String> {
-    let base_path = Path::new(&workspace_path);
-    let file_path = base_path.join(format!("{}.md", page_id));
-    let dir_path = base_path.join(&page_id);
+async fn delete_note(app: AppHandle, page_id: String) -> Result<String, String> {
+    let notes_dir = get_notes_dir(&app)?;
+    let file_path = notes_dir.join(format!("{}.md", page_id));
+    let dir_path = notes_dir.join(&page_id);
 
     if file_path.exists() {
         let _ = trash::delete(&file_path);
@@ -302,12 +288,12 @@ async fn delete_page(
 
 #[tauri::command]
 async fn save_asset_bytes(
-    workspace_path: String,
+    app: AppHandle,
     file_name: String,
     bytes: Vec<u8>
 ) -> Result<String, String> {
-    let base_path = Path::new(&workspace_path);
-    let assets_dir = base_path.join(".assets");
+    let notes_dir = get_notes_dir(&app)?;
+    let assets_dir = notes_dir.join(".assets");
     if !assets_dir.exists() {
         let _ = fs::create_dir_all(&assets_dir);
     }
@@ -318,13 +304,13 @@ async fn save_asset_bytes(
 
     fs::write(&target_file, &bytes).map_err(|e| e.to_string())?;
 
-    let asset_url = format!("asset://localhost/.assets/{}", safe_name);
+    let absolute_path = target_file.to_string_lossy().to_string();
 
     let res = OperationResult {
         success: true,
         page_id: None,
         new_page_id: None,
-        asset_url: Some(asset_url),
+        asset_url: Some(absolute_path),
         error: None,
     };
     serde_json::to_string(&res).map_err(|e| e.to_string())
@@ -334,15 +320,15 @@ fn main() {
     Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            select_workspace,
-            read_workspace,
-            read_page,
-            save_page,
-            create_page,
-            rename_page,
-            delete_page,
+            get_all_notes,
+            read_note,
+            save_note,
+            create_note,
+            rename_note,
+            delete_note,
             save_asset_bytes
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+

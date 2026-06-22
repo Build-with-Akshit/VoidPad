@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { 
   Smile, 
   Image as ImageIcon, 
@@ -29,23 +29,21 @@ const COVER_GRADIENTS = [
 ];
 
 export default function Editor({
-  workspacePath,
   pageId,
-  initialTitle,
-  initialMarkdown,
-  initialMetadata,
   isDarkMode,
-  onSave
+  onTitleChange
 }) {
-  const [title, setTitle] = useState(initialTitle || '');
-  const [icon, setIcon] = useState(initialMetadata?.icon || '');
-  const [cover, setCover] = useState(initialMetadata?.cover || '');
+  const [title, setTitle] = useState('');
+  const [icon, setIcon] = useState('');
+  const [cover, setCover] = useState('');
   
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [saveStatus, setSaveStatus] = useState('Saved');
   const [editorLoaded, setEditorLoaded] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [markdownText, setMarkdownText] = useState('');
 
   const emojiRef = useRef(null);
   const coverRef = useRef(null);
@@ -64,9 +62,9 @@ export default function Editor({
       try {
         const arrayBuffer = await file.arrayBuffer();
         const bytes = Array.from(new Uint8Array(arrayBuffer));
-        const resultStr = await invoke('save_asset_bytes', { workspacePath, fileName: file.name, bytes });
+        const resultStr = await invoke('save_asset_bytes', { fileName: file.name, bytes });
         const result = JSON.parse(resultStr);
-        if (result.success) return result.assetUrl;
+        if (result.success) return convertFileSrc(result.assetUrl);
       } catch (e) {
         console.error("Asset upload failed:", e);
       }
@@ -74,23 +72,38 @@ export default function Editor({
     }
   });
 
-  // Load initial markdown
+  // Load initial note content when pageId changes
   useEffect(() => {
-    async function loadInitialMarkdown() {
-      if (initialMarkdown) {
-        try {
-          const blocks = await editor.tryParseMarkdownToBlocks(initialMarkdown);
+    async function loadNote() {
+      if (!pageId) return;
+      setEditorLoaded(false);
+      setSaveStatus('Loading...');
+      try {
+        const dataStr = await invoke('read_note', { pageId });
+        const data = JSON.parse(dataStr);
+        setTitle(data.title || '');
+        setIcon(data.metadata?.icon || '');
+        setCover(data.metadata?.cover || '');
+        setMarkdownText(data.markdownText || '');
+        
+        if (data.markdownText) {
+          const blocks = await editor.tryParseMarkdownToBlocks(data.markdownText);
           editor.replaceBlocks(editor.document, blocks);
-        } catch(e) {
-          console.error("Markdown parse error:", e);
+        } else {
+          editor.replaceBlocks(editor.document, [{ type: "paragraph", content: "" }]);
         }
-      } else {
-        editor.replaceBlocks(editor.document, [{ type: "paragraph", content: "" }]);
+        
+        setSaveStatus('Saved');
+        setIsDirty(false);
+      } catch (e) {
+        console.error("Error loading note:", e);
+        setSaveStatus('Error');
+      } finally {
+        setEditorLoaded(true);
       }
-      setEditorLoaded(true);
     }
-    loadInitialMarkdown();
-  }, []);
+    loadNote();
+  }, [pageId]);
 
   const updateStats = () => {
     try {
@@ -109,9 +122,6 @@ export default function Editor({
     } catch (e) {}
   };
 
-  const [isDirty, setIsDirty] = useState(false);
-  const [markdownText, setMarkdownText] = useState(initialMarkdown || '');
-
   const onEditorChange = async () => {
     if (!editorLoaded) return;
     const markdown = await editor.blocksToMarkdownLossy(editor.document);
@@ -123,20 +133,28 @@ export default function Editor({
 
   // Auto-save with debounce
   useEffect(() => {
-    if (!isDirty || !editorLoaded) return;
+    if (!isDirty || !editorLoaded || !pageId) return;
     setSaveStatus('Saving...');
     const timer = setTimeout(async () => {
       try {
-        await onSave(title, markdownText, { icon, cover });
+        await invoke('save_note', {
+          pageId,
+          title,
+          markdownText,
+          metadata: { icon, cover }
+        });
         setSaveStatus('Saved');
         setIsDirty(false);
+        if (onTitleChange) {
+          onTitleChange(pageId, title);
+        }
       } catch (error) {
         console.error("Auto-save failed:", error);
         setSaveStatus('Error');
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [title, markdownText, icon, cover, isDirty, editorLoaded]);
+  }, [title, markdownText, icon, cover, isDirty, editorLoaded, pageId]);
 
   const markDirty = () => { setIsDirty(true); setSaveStatus('Editing'); };
 
@@ -154,7 +172,7 @@ export default function Editor({
     try {
       const arrayBuffer = await file.arrayBuffer();
       const bytes = Array.from(new Uint8Array(arrayBuffer));
-      const resultStr = await invoke('save_asset_bytes', { workspacePath, fileName: file.name, bytes });
+      const resultStr = await invoke('save_asset_bytes', { fileName: file.name, bytes });
       const result = JSON.parse(resultStr);
       if (result.success) handleSelectCover(result.assetUrl);
     } catch (err) {
@@ -164,6 +182,14 @@ export default function Editor({
 
   // Determine if cover is a CSS gradient or an image URL
   const isGradient = cover && cover.startsWith('linear-gradient');
+
+  const resolveAssetSrc = (src) => {
+    if (!src) return '';
+    if (src.startsWith('linear-gradient') || src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
+      return src;
+    }
+    return convertFileSrc(src);
+  };
 
   return (
     <>
@@ -193,7 +219,7 @@ export default function Editor({
             isGradient ? (
               <div className="page-cover-gradient" style={{ background: cover }} />
             ) : (
-              <img src={cover} alt="Cover" className="page-cover-image" />
+              <img src={resolveAssetSrc(cover)} alt="Cover" className="page-cover-image" />
             )
           )}
           {cover && (
