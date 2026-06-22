@@ -80,11 +80,22 @@ export default function SearchModal({ pagesTree, onSelectPage, onClose }) {
           <input 
             type="text" 
             className="search-input" 
-            placeholder="Search all notes..."
+            placeholder="Search pages..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
           />
+          <span style={{ 
+            fontSize: '11px', 
+            color: 'var(--text-muted)', 
+            background: 'var(--bg-hover)', 
+            padding: '2px 6px', 
+            borderRadius: '4px',
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 500,
+            whiteSpace: 'nowrap',
+            flexShrink: 0
+          }}>Esc</span>
         </div>
 
         {/* Results List */}

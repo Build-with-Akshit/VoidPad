@@ -71,7 +71,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [history, historyIndex, activePageId]);
 
   // Window control handlers
   const handleMinimize = async () => {
@@ -108,6 +108,15 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    const handleNavigate = (e) => {
+      handleSelectPage(e.detail);
+    };
+    window.addEventListener('navigate-page', handleNavigate);
+    return () => window.removeEventListener('navigate-page', handleNavigate);
+  }, [history, historyIndex, activePageId]);
+
+
   return (
     <div className="app-container">
 
@@ -141,10 +150,13 @@ export default function App() {
       <div className="editor-panel">
         {activePageId ? (
           <Editor 
-            key={activePageId}
             pageId={activePageId}
             isDarkMode={isDarkMode}
             sidebarCollapsed={sidebarCollapsed}
+            onRenameActivePage={(oldId, newId) => {
+               setActivePageId(newId);
+               setHistory(prev => prev.map(id => id === oldId ? newId : id));
+            }}
             onTitleChange={(id, newTitle) => {
               // Trigger Sidebar refresh
               const refreshEvent = new CustomEvent('refresh-sidebar-notes');

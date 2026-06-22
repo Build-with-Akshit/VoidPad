@@ -1,5 +1,5 @@
 /* ========================================================================
-   VoidPad — Notion-Grade Design System
+   VoidPad — Notion-Grade Design System v2
    ======================================================================== */
 
 /* Theme Variables */
@@ -7,7 +7,7 @@
   /* Light Theme */
   --bg-app: #ffffff;
   --bg-sidebar: #f7f7f5;
-  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card: rgba(255, 255, 255, 0.92);
   --bg-hover: rgba(0, 0, 0, 0.03);
   --bg-active: rgba(35, 131, 226, 0.08);
   --text-main: #37352f;
@@ -25,12 +25,16 @@
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
   --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
   --shadow-popover: 0 4px 24px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.05);
+
+  --transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark {
   --bg-app: #191919;
   --bg-sidebar: #202020;
-  --bg-card: rgba(37, 37, 37, 0.9);
+  --bg-card: rgba(37, 37, 37, 0.95);
   --bg-hover: rgba(255, 255, 255, 0.055);
   --bg-active: rgba(35, 131, 226, 0.15);
   --text-main: #e3e2de;
@@ -64,12 +68,13 @@ body {
   color: var(--text-main);
   overflow: hidden;
   height: 100vh;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color var(--transition-smooth), color var(--transition-smooth);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Notion-style minimal scrollbars */
+/* Notion-style minimal scrollbars — appear on hover only */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -77,7 +82,8 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: transparent;
-  border-radius: 3px;
+  border-radius: 10px;
+  transition: background var(--transition-fast);
 }
 *:hover > ::-webkit-scrollbar-thumb,
 ::-webkit-scrollbar-thumb:hover {
@@ -87,6 +93,34 @@ body {
 
 ::selection {
   background: rgba(35, 131, 226, 0.2);
+}
+
+/* ========================================================================
+   Animations — Notion-like buttery smooth
+   ======================================================================== */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInFromLeft {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(35, 131, 226, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(35, 131, 226, 0.1); }
 }
 
 /* ========================================================================
@@ -146,7 +180,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.1s ease, color 0.1s ease;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 .window-control-btn:hover {
   background: var(--bg-hover);
@@ -180,17 +214,7 @@ body {
   padding: 48px 40px;
   backdrop-filter: blur(16px);
   box-shadow: var(--shadow-lg);
-  animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes fadeSlideUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  animation: fadeSlideUp 0.5s var(--transition-spring) forwards;
 }
 
 .welcome-logo {
@@ -221,14 +245,14 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
   font-family: 'Inter', sans-serif;
 }
 .btn-primary:hover {
   filter: brightness(1.1);
   box-shadow: 0 2px 8px rgba(35, 131, 226, 0.3);
 }
-.btn-primary:active { transform: scale(0.98); }
+.btn-primary:active { transform: scale(0.97); }
 
 .btn-secondary {
   background: transparent;
@@ -239,12 +263,12 @@ body {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 .btn-secondary:hover { background: var(--bg-hover); }
 
 /* ========================================================================
-   Sidebar
+   Sidebar — Notion-Exact Feel
    ======================================================================== */
 .sidebar {
   width: var(--sidebar-width);
@@ -254,9 +278,9 @@ body {
   flex-direction: column;
   height: 100%;
   flex-shrink: 0;
-  padding-top: 38px;
+  padding-top: 12px;
   position: relative;
-  transition: width 0.2s ease, min-width 0.2s ease, opacity 0.2s ease;
+  transition: width var(--transition-spring), min-width var(--transition-spring), opacity var(--transition-smooth);
   border-right: 1px solid transparent;
   overflow: hidden;
 }
@@ -266,6 +290,7 @@ body {
   min-width: 0;
   opacity: 0;
   border-right: none;
+  pointer-events: none;
 }
 
 .sidebar-toggle-btn {
@@ -284,7 +309,7 @@ body {
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.2s ease, background 0.15s ease;
+  transition: opacity var(--transition-smooth), background var(--transition-fast);
   -webkit-app-region: no-drag;
 }
 .sidebar-toggle-btn:hover {
@@ -302,10 +327,11 @@ body {
 }
 
 .sidebar-header {
-  padding: 10px 12px;
+  padding: 8px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  -webkit-app-region: drag;
 }
 
 .sidebar-logo {
@@ -317,9 +343,10 @@ body {
   color: var(--text-main);
   gap: 8px;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 3px 6px;
   border-radius: 6px;
-  transition: background 0.15s ease;
+  transition: background var(--transition-fast);
+  -webkit-app-region: no-drag;
 }
 .sidebar-logo:hover { background: var(--bg-hover); }
 
@@ -339,6 +366,7 @@ body {
 .sidebar-actions {
   display: flex;
   gap: 2px;
+  -webkit-app-region: no-drag;
 }
 
 .sidebar-icon-btn {
@@ -352,7 +380,7 @@ body {
   justify-content: center;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 .sidebar-icon-btn:hover {
   background: var(--bg-hover);
@@ -366,33 +394,66 @@ body {
   padding: 4px 8px;
 }
 
+/* Notion-style sidebar search bar */
+.sidebar-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  margin: 2px 0 4px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  transition: all var(--transition-fast);
+  width: 100%;
+  text-align: left;
+}
+.sidebar-search-bar:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+}
+.sidebar-search-shortcut {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
 .sidebar-section-title {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--text-muted);
-  letter-spacing: 0.03em;
-  padding: 16px 8px 4px 8px;
+  letter-spacing: 0.04em;
+  padding: 16px 8px 6px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-/* Tree Nodes */
-.tree-node { margin-bottom: 1px; }
+/* Tree Nodes — Notion-like feel */
+.tree-node { margin-bottom: 0px; }
 
 .tree-node-content {
   display: flex;
   align-items: center;
-  padding: 4px 8px;
-  border-radius: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.08s ease;
+  transition: background var(--transition-fast), color var(--transition-fast);
   font-size: 14px;
   color: var(--text-secondary);
   gap: 4px;
   position: relative;
-  min-height: 28px;
+  min-height: 30px;
   user-select: none;
 }
 .tree-node-content:hover {
@@ -413,7 +474,7 @@ body {
   height: 18px;
   color: var(--text-muted);
   border-radius: 3px;
-  transition: transform 0.15s ease;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
   flex-shrink: 0;
   opacity: 0;
 }
@@ -464,7 +525,7 @@ body {
   justify-content: center;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all var(--transition-fast);
 }
 .tree-action-btn:hover {
   background: var(--bg-hover);
@@ -516,15 +577,16 @@ body {
   gap: 6px;
   padding: 6px 12px;
   margin: 4px 8px 8px;
-  border-radius: 5px;
+  border-radius: 6px;
   border: none;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   font-size: 14px;
-  transition: all 0.1s ease;
+  transition: all var(--transition-fast);
   width: calc(100% - 16px);
   text-align: left;
+  font-family: 'Inter', sans-serif;
 }
 .sidebar-new-page-btn:hover {
   background: var(--bg-hover);
@@ -540,24 +602,24 @@ body {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  padding-top: 38px;
   background: var(--bg-app);
-  transition: background-color 0.2s ease;
+  transition: background-color var(--transition-smooth);
   position: relative;
 }
 
-/* Topbar breadcrumbs */
+/* Topbar breadcrumbs — Notion-like minimal */
 .editor-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
-  min-height: 36px;
+  padding: 0 16px;
+  min-height: 44px;
   font-size: 12px;
   color: var(--text-muted);
-  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
-  transition: padding-left 0.2s ease;
+  transition: padding-left var(--transition-smooth);
+  -webkit-app-region: drag;
+  border-bottom: none;
 }
 
 .editor-topbar.sidebar-collapsed {
@@ -567,10 +629,27 @@ body {
 .editor-breadcrumbs {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   font-size: 12px;
+  -webkit-app-region: no-drag;
 }
-.editor-breadcrumbs span { color: var(--text-muted); }
+.editor-breadcrumbs span {
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: default;
+}
+.editor-breadcrumbs span:not(.separator):hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+  cursor: pointer;
+}
+.editor-breadcrumbs .separator {
+  color: var(--border-color);
+  font-size: 13px;
+  padding: 0 1px;
+}
 .editor-breadcrumbs .active-crumb {
   color: var(--text-main);
   font-weight: 500;
@@ -580,6 +659,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  -webkit-app-region: no-drag;
 }
 
 .status-badge {
@@ -588,8 +668,12 @@ body {
   gap: 4px;
   font-size: 11px;
   color: var(--text-muted);
-  padding: 2px 8px;
+  padding: 3px 8px;
   border-radius: 10px;
+  background: transparent;
+  transition: all var(--transition-fast);
+}
+.status-badge:hover {
   background: var(--bg-hover);
 }
 
@@ -598,9 +682,10 @@ body {
   height: 6px;
   border-radius: 50%;
   display: inline-block;
+  transition: background var(--transition-fast);
 }
 .status-dot.saved { background: var(--green); }
-.status-dot.saving { background: var(--yellow); }
+.status-dot.saving { background: var(--yellow); animation: pulseGlow 1.5s ease infinite; }
 .status-dot.error { background: var(--red); }
 
 /* Editor scrollable content */
@@ -610,6 +695,7 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
+  scroll-behavior: smooth;
 }
 
 /* Cover Image Section */
@@ -619,13 +705,17 @@ body {
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
-  transition: height 0.2s ease;
+  transition: height var(--transition-spring);
 }
 
 .page-cover-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.4s ease;
+}
+.page-cover-container:hover .page-cover-image {
+  transform: scale(1.01);
 }
 
 .page-cover-gradient {
@@ -646,16 +736,16 @@ body {
   display: flex;
   gap: 6px;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--transition-smooth);
 }
 .page-cover-container:hover .cover-hover-controls { opacity: 1; }
 
 .cover-control-btn {
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
   color: rgba(255, 255, 255, 0.9);
   border: none;
-  padding: 4px 10px;
+  padding: 5px 12px;
   font-size: 11px;
   font-weight: 500;
   border-radius: 4px;
@@ -663,9 +753,10 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  transition: background 0.15s ease;
+  transition: background var(--transition-fast);
+  font-family: 'Inter', sans-serif;
 }
-.cover-control-btn:hover { background: rgba(0, 0, 0, 0.7); }
+.cover-control-btn:hover { background: rgba(0, 0, 0, 0.75); }
 
 /* Page meta (icon + title) */
 .page-meta-wrapper {
@@ -682,13 +773,9 @@ body {
   gap: 6px;
   margin-top: 12px;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--transition-fast);
 }
 .page-meta-wrapper:hover .page-meta-hover-actions { opacity: 1; }
-.page-meta-hover-actions.has-icon,
-.page-meta-hover-actions.has-cover {
-  /* If already has icon/cover, still show on hover */
-}
 
 .meta-action-btn {
   background: transparent;
@@ -701,7 +788,8 @@ body {
   gap: 4px;
   padding: 4px 6px;
   border-radius: 4px;
-  transition: all 0.1s ease;
+  transition: all var(--transition-fast);
+  font-family: 'Inter', sans-serif;
 }
 .meta-action-btn:hover {
   background: var(--bg-hover);
@@ -721,10 +809,10 @@ body {
   cursor: pointer;
   position: relative;
   z-index: 10;
-  transition: transform 0.1s ease;
+  transition: transform var(--transition-spring);
   line-height: 1;
 }
-.page-icon-container:hover { transform: scale(1.05); }
+.page-icon-container:hover { transform: scale(1.08); }
 
 .page-title-input {
   width: 100%;
@@ -739,8 +827,12 @@ body {
   padding: 3px 2px;
   line-height: 1.2;
   letter-spacing: -0.02em;
+  caret-color: var(--accent-color);
 }
-.page-title-input::placeholder { color: var(--border-color); }
+.page-title-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
 
 /* BlockNote Editor */
 .blocknote-editor-container {
@@ -749,23 +841,27 @@ body {
   margin: 0 auto;
   padding: 0 96px 120px 96px;
   font-family: 'Inter', sans-serif;
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn 0.25s ease;
 }
 
-/* BlockNote overrides — make it feel native */
+/* ========================================================================
+   BlockNote Overrides — Notion-Exact Feel
+   ======================================================================== */
 .bn-editor {
   padding-left: 0 !important;
   padding-right: 0 !important;
   background: transparent !important;
-  font-family: 'Inter', sans-serif !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif !important;
   font-size: 16px !important;
   line-height: 1.65 !important;
   color: var(--text-main) !important;
+  letter-spacing: -0.01em !important;
+  caret-color: var(--accent-color) !important;
 }
 
-/* Allow text selection in editor */
-.bn-editor, .bn-editor * {
-  user-select: text !important;
+/* Smooth transitions for all block elements */
+.bn-block-outer {
+  transition: background-color var(--transition-fast) !important;
 }
 
 /* BlockNote block spacing */
@@ -774,21 +870,38 @@ body {
   margin-bottom: 1px !important;
 }
 
-/* Side menu (drag handle) */
+/* Toggle block nested children logic */
+.bn-block-outer:has(.toggle-closed) > .bn-block-group,
+.bn-block-outer:has(.toggle-closed) + .bn-block-group {
+  display: none !important;
+}
+
+/* Side menu (drag handles) — Notion-like subtle appearance */
 .bn-side-menu {
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--transition-fast) !important;
 }
-.bn-block-outer:hover > .bn-side-menu { opacity: 1; }
+.bn-block-outer:hover > .bn-block > .bn-side-menu,
+.bn-side-menu:hover {
+  opacity: 1;
+}
 
 /* Slash menu styling */
 .bn-slash-menu,
 .bn-suggestion-menu {
   background: var(--bg-card) !important;
   border: 1px solid var(--border-color) !important;
-  border-radius: 8px !important;
+  border-radius: 10px !important;
   box-shadow: var(--shadow-popover) !important;
-  backdrop-filter: blur(16px) !important;
+  backdrop-filter: blur(20px) !important;
+  animation: scaleIn 0.15s ease forwards !important;
+  overflow: hidden !important;
+}
+
+/* Suggestion menu items — smoother hover */
+.bn-suggestion-menu-item {
+  transition: background var(--transition-fast) !important;
+  border-radius: 6px !important;
 }
 
 /* Formatting toolbar */
@@ -798,10 +911,263 @@ body {
   border: 1px solid var(--border-color) !important;
   border-radius: 8px !important;
   box-shadow: var(--shadow-popover) !important;
+  backdrop-filter: blur(16px) !important;
+  animation: scaleIn 0.12s ease forwards !important;
+}
+
+/* Headings — Notion typography */
+.bn-editor h1, .bn-editor [data-content-type="heading"][data-level="1"] {
+  font-family: 'Outfit', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.3 !important;
+  margin-top: 2em !important;
+}
+
+.bn-editor h2, .bn-editor [data-content-type="heading"][data-level="2"] {
+  font-family: 'Outfit', sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.35 !important;
+  margin-top: 1.5em !important;
+}
+
+.bn-editor h3, .bn-editor [data-content-type="heading"][data-level="3"] {
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  margin-top: 1.2em !important;
+}
+
+/* Lists — Notion-like tight spacing */
+.bn-editor [data-content-type="bulletListItem"],
+.bn-editor [data-content-type="numberedListItem"] {
+  line-height: 1.6 !important;
+}
+
+/* Inline code — Notion-style */
+.bn-editor code {
+  background: var(--bg-hover) !important;
+  color: var(--red) !important;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace !important;
+  font-size: 0.9em !important;
+  padding: 2px 5px !important;
+  border-radius: 3px !important;
+  border: none !important;
 }
 
 /* ========================================================================
-   Modals
+   Notion-Grade Block Styles
+   ======================================================================== */
+
+/* Quote block — left border accent */
+.bn-editor [data-content-type="quote"] {
+  border-left: 3px solid var(--text-main) !important;
+  padding-left: 14px !important;
+  margin-left: 2px !important;
+  font-size: 1.05em !important;
+}
+
+/* Checkbox / To-do list — nicer checkboxes */
+.bn-editor [data-content-type="checkListItem"] input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 3px !important;
+  accent-color: var(--accent-color) !important;
+  cursor: pointer !important;
+  margin-right: 4px !important;
+}
+
+.bn-editor [data-content-type="checkListItem"][data-checked="true"] .bn-inline-content {
+  text-decoration: line-through !important;
+  color: var(--text-muted) !important;
+}
+
+/* Table — clean Notion-like table */
+.bn-editor table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 4px !important;
+  overflow: hidden !important;
+  font-size: 14px !important;
+}
+
+.bn-editor table th,
+.bn-editor table td {
+  border: 1px solid var(--border-color) !important;
+  padding: 8px 12px !important;
+  text-align: left !important;
+  vertical-align: top !important;
+}
+
+.bn-editor table th {
+  background: var(--bg-hover) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+}
+
+.bn-editor table tr:hover td {
+  background: var(--bg-hover) !important;
+}
+
+/* File block / Image / Video — clean card style */
+.bn-editor [data-content-type="image"],
+.bn-editor [data-content-type="video"],
+.bn-editor [data-content-type="audio"],
+.bn-editor [data-content-type="file"] {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+.bn-editor [data-content-type="image"] img {
+  border-radius: 6px !important;
+  max-width: 100% !important;
+}
+
+/* Bullet list — Notion disc style */
+.bn-editor [data-content-type="bulletListItem"]::before {
+  color: var(--text-main) !important;
+}
+
+/* Numbered list — clean numbers */
+.bn-editor [data-content-type="numberedListItem"]::before {
+  color: var(--text-main) !important;
+  font-weight: 500 !important;
+}
+
+/* ========================================================================
+   Notion-Grade Selection & Typography Overrides
+   ======================================================================== */
+
+.bn-editor .bn-block[data-selected="true"] {
+  background-color: rgba(35, 131, 226, 0.14) !important;
+}
+
+.bn-editor [data-content-type="heading"][data-level="1"] {
+  font-size: 2.2em !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  margin-top: 1.5em !important;
+  margin-bottom: 0.2em !important;
+}
+
+.bn-editor [data-content-type="heading"][data-level="2"] {
+  font-size: 1.6em !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.015em !important;
+  margin-top: 1.2em !important;
+  margin-bottom: 0.1em !important;
+}
+
+.bn-editor [data-content-type="heading"][data-level="3"] {
+  font-size: 1.3em !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  margin-top: 1em !important;
+  margin-bottom: 0.1em !important;
+}
+
+/* Paragraph spacing */
+.bn-editor [data-content-type="paragraph"] {
+  margin-top: 0.2em !important;
+  margin-bottom: 0.2em !important;
+  line-height: 1.6 !important;
+}
+
+/* Callout block refinement */
+.bn-editor [data-content-type="callout"] {
+  padding: 16px 16px 16px 12px !important;
+  border-radius: 4px !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+/* ========================================================================
+   Slash Menu — Notion-Grade
+   ======================================================================== */
+.bn-suggestion-menu {
+  max-height: 380px !important;
+  padding: 4px !important;
+  min-width: 280px !important;
+}
+
+/* Group labels */
+.bn-suggestion-menu-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  color: var(--text-muted) !important;
+  padding: 8px 10px 4px !important;
+  pointer-events: none !important;
+}
+
+/* Menu items */
+.bn-suggestion-menu-item {
+  padding: 4px 8px !important;
+  gap: 10px !important;
+  min-height: 40px !important;
+}
+
+.bn-suggestion-menu-item:hover,
+.bn-suggestion-menu-item[aria-selected="true"] {
+  background: var(--bg-hover) !important;
+}
+
+.bn-suggestion-menu-item .bn-suggestion-menu-item-title {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: var(--text-main) !important;
+}
+
+.bn-suggestion-menu-item .bn-suggestion-menu-item-subtitle {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+}
+
+/* Drag handle / side menu — Notion-like */
+.bn-side-menu .bn-button {
+  color: var(--text-muted) !important;
+  opacity: 0.5 !important;
+  transition: opacity var(--transition-fast) !important;
+}
+.bn-side-menu .bn-button:hover {
+  opacity: 1 !important;
+  color: var(--text-main) !important;
+}
+
+/* Formatting toolbar buttons */
+.bn-toolbar .bn-button {
+  border-radius: 4px !important;
+  transition: background var(--transition-fast) !important;
+}
+.bn-toolbar .bn-button:hover {
+  background: var(--bg-hover) !important;
+}
+.bn-toolbar .bn-button[data-active="true"] {
+  background: var(--bg-active) !important;
+  color: var(--accent-color) !important;
+}
+
+/* Color picker in toolbar */
+.bn-color-picker {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-popover) !important;
+  backdrop-filter: blur(16px) !important;
+}
+
+/* Link toolbar */
+.bn-link-toolbar {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-popover) !important;
+}
+
+/* ========================================================================
+   Modals — Notion-Grade
    ======================================================================== */
 .modal-overlay {
   position: fixed;
@@ -809,14 +1175,14 @@ body {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding-top: 12vh;
   z-index: 10000;
-  animation: fadeIn 0.15s ease;
+  animation: fadeIn 0.12s ease;
 }
 
 /* Search / Command Palette Modal */
@@ -824,19 +1190,19 @@ body {
   width: 560px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: var(--shadow-popover);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: fadeSlideUp 0.2s ease-out forwards;
-  backdrop-filter: blur(16px);
+  animation: fadeSlideUp 0.2s var(--transition-spring) forwards;
+  backdrop-filter: blur(20px);
 }
 
 .search-input-container {
   display: flex;
   align-items: center;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border-color);
   gap: 10px;
 }
@@ -846,13 +1212,15 @@ body {
   background: transparent;
   border: none;
   outline: none;
-  font-size: 15px;
+  font-size: 16px;
   color: var(--text-main);
+  font-family: 'Inter', sans-serif;
+  caret-color: var(--accent-color);
 }
 .search-input::placeholder { color: var(--text-muted); }
 
 .search-results {
-  max-height: 320px;
+  max-height: 340px;
   overflow-y: auto;
   padding: 6px;
 }
@@ -864,7 +1232,7 @@ body {
   border-radius: 6px;
   cursor: pointer;
   gap: 10px;
-  transition: background 0.1s ease;
+  transition: background var(--transition-fast);
   font-size: 14px;
 }
 .search-result-item:hover,
@@ -900,7 +1268,8 @@ body {
   z-index: 100;
   box-shadow: var(--shadow-popover);
   width: 300px;
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
+  animation: scaleIn 0.15s ease forwards;
 }
 
 .cover-grid {
@@ -914,7 +1283,7 @@ body {
   border-radius: 5px;
   cursor: pointer;
   border: 2px solid transparent;
-  transition: transform 0.1s ease;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
 }
 .cover-option:hover { transform: scale(1.06); }
 .cover-option.active { border-color: var(--accent-color); }
@@ -930,7 +1299,8 @@ body {
   overflow: hidden;
   border: 1px solid var(--border-color);
   background: var(--bg-card);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
+  animation: scaleIn 0.15s ease forwards;
 }
 
 /* Settings Modal */
@@ -938,13 +1308,14 @@ body {
   width: 480px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 12px;
   box-shadow: var(--shadow-popover);
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
+  animation: fadeSlideUp 0.2s ease forwards;
 }
 
 .settings-header {
@@ -982,9 +1353,13 @@ body {
   color: var(--text-main);
   font-size: 13px;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  font-family: 'Inter', sans-serif;
 }
-.settings-input:focus { border-color: var(--accent-color); }
+.settings-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(35, 131, 226, 0.1);
+}
 
 /* ========================================================================
    Utility & Animation
@@ -1007,7 +1382,7 @@ body {
   gap: 12px;
   padding: 40px;
   text-align: center;
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.5s ease;
 }
 .empty-state h2 {
   font-family: 'Outfit', sans-serif;
@@ -1020,4 +1395,28 @@ body {
   color: var(--text-muted);
   max-width: 280px;
   line-height: 1.5;
+}
+
+/* ========================================================================
+   Responsive — Smaller screens
+   ======================================================================== */
+@media (max-width: 900px) {
+  .page-meta-wrapper {
+    padding: 0 32px;
+  }
+  .blocknote-editor-container {
+    padding: 0 32px 120px 32px;
+  }
+}
+
+@media (max-width: 600px) {
+  .page-meta-wrapper {
+    padding: 0 16px;
+  }
+  .blocknote-editor-container {
+    padding: 0 16px 120px 16px;
+  }
+  .page-title-input {
+    font-size: 28px;
+  }
 }

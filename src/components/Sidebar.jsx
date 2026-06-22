@@ -219,6 +219,17 @@ export default function Sidebar({
       </div>
 
       <div className="sidebar-scrollable">
+        {/* Notion-style search bar */}
+        <button 
+          className="sidebar-search-bar" 
+          onClick={onOpenSearch}
+          title="Search (Ctrl+P)"
+        >
+          <Search size={14} />
+          <span>Search</span>
+          <span className="sidebar-search-shortcut">Ctrl+P</span>
+        </button>
+
         <div className="sidebar-section-title">
           <span>Pages</span>
           <button className="tree-action-btn" onClick={() => handleCreatePage(null)} title="New page" style={{ padding: 0 }}>

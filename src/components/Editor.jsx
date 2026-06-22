@@ -1,22 +1,238 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
-import { useCreateBlockNote } from "@blocknote/react";
-import { BlockNoteSchema, defaultBlockSpecs } from "@blocknote/core";
 import { MonacoCodeBlock } from './MonacoCodeBlock';
+import { CalloutBlock } from './CalloutBlock';
+import { DividerBlock } from './DividerBlock';
+import { ToggleBlock } from './ToggleBlock';
+import { 
+  SuggestionMenuController, 
+  getDefaultReactSlashMenuItems,
+  useCreateBlockNote 
+} from "@blocknote/react";
+import { filterSuggestionItems, BlockNoteSchema, defaultBlockSpecs } from "@blocknote/core";
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { 
   Smile, 
   Image as ImageIcon, 
   Trash2, 
-  FileText
+  FileText,
+  Minus,
+  ChevronRight,
+  Table,
+  Quote,
+  ListOrdered,
+  List,
+  CheckSquare,
+  Heading1,
+  Heading2,
+  Heading3,
+  Video,
+  Music,
+  Paperclip,
+  Type
 } from 'lucide-react';
+
+import { PageLinkBlock } from './PageLinkBlock';
 
 const schema = BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
     monacoCode: MonacoCodeBlock,
+    callout: CalloutBlock,
+    divider: DividerBlock,
+    toggle: ToggleBlock,
+    pageLink: PageLinkBlock,
   },
+});
+
+// === Slash Menu Items — Notion-complete ===
+
+const insertParagraph = (editor) => ({
+  title: "Text",
+  onItemClick: () => { editor.insertBlocks([{ type: "paragraph" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["text", "paragraph", "p"],
+  group: "Basic blocks",
+  icon: <Type size={18} />,
+  subtext: "Just start writing with plain text.",
+});
+
+const insertHeading1 = (editor) => ({
+  title: "Heading 1",
+  onItemClick: () => { editor.insertBlocks([{ type: "heading", props: { level: 1 } }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["h1", "heading1", "title"],
+  group: "Headings",
+  icon: <Heading1 size={18} />,
+  subtext: "Big section heading.",
+});
+
+const insertHeading2 = (editor) => ({
+  title: "Heading 2",
+  onItemClick: () => { editor.insertBlocks([{ type: "heading", props: { level: 2 } }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["h2", "heading2", "subtitle"],
+  group: "Headings",
+  icon: <Heading2 size={18} />,
+  subtext: "Medium section heading.",
+});
+
+const insertHeading3 = (editor) => ({
+  title: "Heading 3",
+  onItemClick: () => { editor.insertBlocks([{ type: "heading", props: { level: 3 } }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["h3", "heading3"],
+  group: "Headings",
+  icon: <Heading3 size={18} />,
+  subtext: "Small section heading.",
+});
+
+const insertBulletList = (editor) => ({
+  title: "Bullet List",
+  onItemClick: () => { editor.insertBlocks([{ type: "bulletListItem" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["ul", "bullet", "list", "unordered"],
+  group: "Basic blocks",
+  icon: <List size={18} />,
+  subtext: "Create a simple bulleted list.",
+});
+
+const insertNumberedList = (editor) => ({
+  title: "Numbered List",
+  onItemClick: () => { editor.insertBlocks([{ type: "numberedListItem" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["ol", "numbered", "ordered"],
+  group: "Basic blocks",
+  icon: <ListOrdered size={18} />,
+  subtext: "Create a numbered list.",
+});
+
+const insertCheckList = (editor) => ({
+  title: "To-do List",
+  onItemClick: () => { editor.insertBlocks([{ type: "checkListItem" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["todo", "check", "checkbox", "task"],
+  group: "Basic blocks",
+  icon: <CheckSquare size={18} />,
+  subtext: "Track tasks with a to-do list.",
+});
+
+const insertToggleItem = (editor) => ({
+  title: "Toggle List",
+  onItemClick: () => { editor.insertBlocks([{ type: "toggle" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["toggle", "expand", "collapse", "dropdown"],
+  group: "Basic blocks",
+  icon: <ChevronRight size={18} />,
+  subtext: "Toggles can hide and show content inside.",
+});
+
+const insertQuoteItem = (editor) => ({
+  title: "Quote",
+  onItemClick: () => { editor.insertBlocks([{ type: "quote" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["quote", "blockquote", ">"],
+  group: "Basic blocks",
+  icon: <Quote size={18} />,
+  subtext: "Capture a quote.",
+});
+
+const insertDividerItem = (editor) => ({
+  title: "Divider",
+  onItemClick: () => { editor.insertBlocks([{ type: "divider" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["divider", "line", "hr", "---"],
+  group: "Basic blocks",
+  icon: <Minus size={18} />,
+  subtext: "Visually divide blocks.",
+});
+
+const insertCalloutItem = (editor) => ({
+  title: "Callout",
+  onItemClick: () => { editor.insertBlocks([{ type: "callout" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["callout", "alert", "info", "warning", "tip"],
+  group: "Advanced blocks",
+  icon: <Smile size={18} />,
+  subtext: "Make writing stand out.",
+});
+
+const insertTableItem = (editor) => ({
+  title: "Table",
+  onItemClick: () => {
+    editor.insertBlocks(
+      [{ type: "table", content: { type: "tableContent", rows: [
+        { cells: [["Column 1"], ["Column 2"], ["Column 3"]] },
+        { cells: [[""], [""], [""]] },
+        { cells: [[""], [""], [""]] },
+      ]}}],
+      editor.getTextCursorPosition().block,
+      "after"
+    );
+  },
+  aliases: ["table", "grid", "spreadsheet"],
+  group: "Advanced blocks",
+  icon: <Table size={18} />,
+  subtext: "Add a simple table.",
+});
+
+const insertMonacoCodeItem = (editor) => ({
+  title: "Code Block",
+  onItemClick: () => { editor.insertBlocks([{ type: "monacoCode" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["code", "monaco", "snippet", "script"],
+  group: "Advanced blocks",
+  icon: <FileText size={18} />,
+  subtext: "VS Code powered code editor.",
+});
+
+const insertImageItem = (editor) => ({
+  title: "Image",
+  onItemClick: () => { editor.insertBlocks([{ type: "image" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["image", "img", "picture", "photo"],
+  group: "Media",
+  icon: <ImageIcon size={18} />,
+  subtext: "Upload or embed an image.",
+});
+
+const insertVideoItem = (editor) => ({
+  title: "Video",
+  onItemClick: () => { editor.insertBlocks([{ type: "video" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["video", "mp4", "clip"],
+  group: "Media",
+  icon: <Video size={18} />,
+  subtext: "Upload or embed a video.",
+});
+
+const insertAudioItem = (editor) => ({
+  title: "Audio",
+  onItemClick: () => { editor.insertBlocks([{ type: "audio" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["audio", "sound", "music", "mp3"],
+  group: "Media",
+  icon: <Music size={18} />,
+  subtext: "Upload or embed audio.",
+});
+
+const insertFileItem = (editor) => ({
+  title: "File",
+  onItemClick: () => { editor.insertBlocks([{ type: "file" }], editor.getTextCursorPosition().block, "after"); },
+  aliases: ["file", "attachment", "upload"],
+  group: "Media",
+  icon: <Paperclip size={18} />,
+  subtext: "Upload or embed a file.",
+});
+
+const insertPageLinkItem = (editor) => ({
+  title: "Page",
+  onItemClick: async () => { 
+    try {
+      const resStr = await invoke('create_note', { parentId: null });
+      const res = JSON.parse(resStr);
+      if (res.success && res.pageId) {
+        editor.insertBlocks(
+          [{ type: "pageLink", props: { pageId: res.pageId, pageName: "Untitled" } }], 
+          editor.getTextCursorPosition().block, 
+          "after"
+        );
+        window.dispatchEvent(new CustomEvent('refresh-sidebar-notes'));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  },
+  aliases: ["page", "link", "subpage"],
+  group: "Advanced blocks",
+  icon: <FileText size={18} />,
+  subtext: "Embed a sub-page inside this page.",
 });
 
 const POPULAR_EMOJIS = [
@@ -41,7 +257,8 @@ export default function Editor({
   pageId,
   isDarkMode,
   sidebarCollapsed,
-  onTitleChange
+  onTitleChange,
+  onRenameActivePage
 }) {
   const [title, setTitle] = useState('');
   const [icon, setIcon] = useState('');
@@ -57,6 +274,7 @@ export default function Editor({
 
   const emojiRef = useRef(null);
   const coverRef = useRef(null);
+  const lastLoadedPageId = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -87,6 +305,8 @@ export default function Editor({
   useEffect(() => {
     async function loadNote() {
       if (!pageId) return;
+      if (pageId === lastLoadedPageId.current) return;
+
       setEditorLoaded(false);
       setSaveStatus('Loading...');
       try {
@@ -106,6 +326,7 @@ export default function Editor({
         
         setSaveStatus('Saved');
         setIsDirty(false);
+        lastLoadedPageId.current = pageId;
       } catch (e) {
         console.error("Error loading note:", e);
         setSaveStatus('Error');
@@ -154,10 +375,27 @@ export default function Editor({
           markdownText,
           metadata: { icon, cover }
         });
+
+        let newActivePageId = pageId;
+        const currentFileName = pageId.split('/').pop();
+        const cleanedTitle = title.trim();
+
+        if (cleanedTitle && cleanedTitle !== currentFileName) {
+           const resultStr = await invoke('rename_note', { pageId, newName: cleanedTitle });
+           const result = JSON.parse(resultStr);
+           if (result.success && result.newPageId) {
+             newActivePageId = result.newPageId;
+             lastLoadedPageId.current = newActivePageId;
+             if (onRenameActivePage) {
+               onRenameActivePage(pageId, newActivePageId);
+             }
+           }
+        }
+
         setSaveStatus('Saved');
         setIsDirty(false);
         if (onTitleChange) {
-          onTitleChange(pageId, title);
+          onTitleChange(newActivePageId, title);
         }
       } catch (error) {
         console.error("Auto-save failed:", error);
@@ -202,16 +440,27 @@ export default function Editor({
     return convertFileSrc(src);
   };
 
+  // Build breadcrumbs from the page path
+  const breadcrumbParts = pageId ? pageId.split('/') : [];
+
   return (
     <>
       {/* Top bar */}
-      <div className={`editor-topbar ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-        <div className="editor-breadcrumbs">
-          <span>Notes</span>
-          <span>/</span>
-          <span className="active-crumb">{title || 'Untitled'}</span>
+      <div className={`editor-topbar ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`} data-tauri-drag-region>
+        <div className="editor-breadcrumbs no-drag">
+          {breadcrumbParts.map((part, i) => {
+            const isLast = i === breadcrumbParts.length - 1;
+            return (
+              <React.Fragment key={i}>
+                {i > 0 && <span className="separator">/</span>}
+                <span className={isLast ? 'active-crumb' : ''}>
+                  {isLast ? (title || 'Untitled') : part}
+                </span>
+              </React.Fragment>
+            );
+          })}
         </div>
-        <div className="editor-status">
+        <div className="editor-status no-drag">
           <div className="status-badge">
             <span className={`status-dot ${saveStatus === 'Saved' ? 'saved' : saveStatus === 'Saving...' ? 'saving' : 'error'}`} />
             {saveStatus}
@@ -344,9 +593,38 @@ export default function Editor({
             onChange={onEditorChange}
             theme={isDarkMode ? "dark" : "light"}
             sideMenu={true}
-            slashMenu={true}
+            slashMenu={false}
             formattingToolbar={true}
-          />
+          >
+            <SuggestionMenuController
+              triggerCharacter={"/"}
+              getItems={async (query) =>
+                filterSuggestionItems(
+                  [
+                    insertParagraph(editor),
+                    insertHeading1(editor),
+                    insertHeading2(editor),
+                    insertHeading3(editor),
+                    insertBulletList(editor),
+                    insertNumberedList(editor),
+                    insertCheckList(editor),
+                    insertToggleItem(editor),
+                    insertQuoteItem(editor),
+                    insertDividerItem(editor),
+                    insertCalloutItem(editor),
+                    insertTableItem(editor),
+                    insertMonacoCodeItem(editor),
+                    insertImageItem(editor),
+                    insertVideoItem(editor),
+                    insertAudioItem(editor),
+                    insertFileItem(editor),
+                    insertPageLinkItem(editor),
+                  ],
+                  query
+                )
+              }
+            />
+          </BlockNoteView>
         </div>
       </div>
     </>
