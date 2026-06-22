@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
+import { BlockNoteSchema, defaultBlockSpecs } from "@blocknote/core";
+import { MonacoCodeBlock } from './MonacoCodeBlock';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { 
   Smile, 
@@ -9,6 +11,13 @@ import {
   Trash2, 
   FileText
 } from 'lucide-react';
+
+const schema = BlockNoteSchema.create({
+  blockSpecs: {
+    ...defaultBlockSpecs,
+    monacoCode: MonacoCodeBlock,
+  },
+});
 
 const POPULAR_EMOJIS = [
   '📄', '🚀', '💡', '📝', '📅', '🎯', '🎨', '💻', '🏠', '🔍', 
@@ -31,6 +40,7 @@ const COVER_GRADIENTS = [
 export default function Editor({
   pageId,
   isDarkMode,
+  sidebarCollapsed,
   onTitleChange
 }) {
   const [title, setTitle] = useState('');
@@ -58,6 +68,7 @@ export default function Editor({
   }, []);
 
   const editor = useCreateBlockNote({
+    schema,
     uploadFile: async (file) => {
       try {
         const arrayBuffer = await file.arrayBuffer();
@@ -194,7 +205,7 @@ export default function Editor({
   return (
     <>
       {/* Top bar */}
-      <div className="editor-topbar">
+      <div className={`editor-topbar ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <div className="editor-breadcrumbs">
           <span>Notes</span>
           <span>/</span>

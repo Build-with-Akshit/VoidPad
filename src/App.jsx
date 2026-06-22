@@ -21,6 +21,10 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // History for Alt+Arrow navigation
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
   useEffect(() => {
     const root = document.documentElement;
     if (isDarkMode) {
@@ -42,6 +46,28 @@ export default function App() {
         e.preventDefault();
         setSidebarCollapsed(prev => !prev);
       }
+      
+      // Browser-like history navigation
+      if (e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setHistoryIndex(prev => {
+          if (prev > 0) {
+            setActivePageId(history[prev - 1]);
+            return prev - 1;
+          }
+          return prev;
+        });
+      }
+      if (e.altKey && e.key === 'ArrowRight') {
+        e.preventDefault();
+        setHistoryIndex(prev => {
+          if (prev < history.length - 1) {
+            setActivePageId(history[prev + 1]);
+            return prev + 1;
+          }
+          return prev;
+        });
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -52,20 +78,21 @@ export default function App() {
     try { await getCurrentWindow().minimize(); } catch(e) {}
   };
   const handleMaximize = async () => {
-    try {
-      const win = getCurrentWindow();
-      if (await win.isMaximized()) {
-        await win.unmaximize();
-      } else {
-        await win.maximize();
-      }
-    } catch(e) {}
+    try { await getCurrentWindow().toggleMaximize(); } catch(e) {}
   };
   const handleClose = async () => {
     try { await getCurrentWindow().close(); } catch(e) {}
   };
 
-  const handleSelectPage = (pageId) => {
+  const handleSelectPage = (pageId, skipHistory = false) => {
+    if (pageId !== activePageId && !skipHistory) {
+      setHistory(prev => {
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push(pageId);
+        return newHistory;
+      });
+      setHistoryIndex(prev => prev + 1);
+    }
     setActivePageId(pageId);
   };
 
@@ -81,27 +108,8 @@ export default function App() {
     }
   };
 
-  // Window controls component
-  const WindowControls = () => (
-    <div className="window-controls">
-      <button className="window-control-btn" onClick={handleMinimize} title="Minimize">
-        <Minus size={14} />
-      </button>
-      <button className="window-control-btn" onClick={handleMaximize} title="Maximize">
-        <Square size={12} />
-      </button>
-      <button className="window-control-btn close" onClick={handleClose} title="Close">
-        <X size={14} />
-      </button>
-    </div>
-  );
-
   return (
     <div className="app-container">
-      <div className="window-titlebar" data-tauri-drag-region>
-        <div />
-        <WindowControls />
-      </div>
 
       <Sidebar 
         activePageId={activePageId}
@@ -119,14 +127,16 @@ export default function App() {
       />
 
       {/* Sidebar toggle button (visible when collapsed) */}
-      <button 
-        className="sidebar-toggle-btn"
-        onClick={() => setSidebarCollapsed(prev => !prev)}
-        title="Toggle Sidebar (Ctrl+\\)"
-        style={{ left: sidebarCollapsed ? 8 : `calc(var(--sidebar-width) - 32px)` }}
-      >
-        {sidebarCollapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={14} />}
-      </button>
+      {sidebarCollapsed && (
+        <button 
+          className="sidebar-toggle-btn"
+          onClick={() => setSidebarCollapsed(false)}
+          title="Open Sidebar (Ctrl+\\)"
+          style={{ left: 8 }}
+        >
+          <ChevronsRight size={14} />
+        </button>
+      )}
 
       <div className="editor-panel">
         {activePageId ? (
@@ -134,6 +144,7 @@ export default function App() {
             key={activePageId}
             pageId={activePageId}
             isDarkMode={isDarkMode}
+            sidebarCollapsed={sidebarCollapsed}
             onTitleChange={(id, newTitle) => {
               // Trigger Sidebar refresh
               const refreshEvent = new CustomEvent('refresh-sidebar-notes');
