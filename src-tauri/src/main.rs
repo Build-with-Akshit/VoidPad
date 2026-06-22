@@ -4,9 +4,9 @@
 )]
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use serde::{Deserialize, Serialize};
-use tauri::{Builder, generate_context, generate_handler, AppHandle};
+use tauri::{Builder, AppHandle};
 use tauri_plugin_dialog::DialogExt;
 use gray_matter::engine::YAML;
 use gray_matter::Matter;
@@ -16,7 +16,7 @@ struct TreeNode {
     id: String,
     name: String,
     #[serde(rename = "type")]
-    node_type: String, // "page" or "directory"
+    node_type: String,
     path: String,
     children: Option<Vec<TreeNode>>,
 }
@@ -49,11 +49,13 @@ struct OperationResult {
 
 #[tauri::command]
 async fn select_workspace(app: AppHandle) -> Result<Option<String>, String> {
-    // using tauri-plugin-dialog
-    let result = app.dialog().file().pick_folder();
-    match result {
-        Some(path) => Ok(Some(path.to_string())),
-        None => Ok(None),
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.dialog().file().pick_folder(move |folder_path| {
+        let _ = tx.send(folder_path.map(|p| p.to_string()));
+    });
+    match rx.recv() {
+        Ok(result) => Ok(result),
+        Err(_) => Ok(None),
     }
 }
 
@@ -74,7 +76,6 @@ fn build_tree(dir_path: &Path, base_path: &Path) -> Vec<TreeNode> {
                 let id = rel_path.trim_end_matches(".md").to_string();
                 let name = file_name.trim_end_matches(".md").to_string();
                 
-                // check if it has children (a folder with same name)
                 let dir_counterpart = path.with_extension("");
                 let mut children = None;
                 if dir_counterpart.is_dir() {
@@ -91,7 +92,6 @@ fn build_tree(dir_path: &Path, base_path: &Path) -> Vec<TreeNode> {
             }
         }
     }
-    // sort nodes
     nodes.sort_by(|a, b| a.name.cmp(&b.name));
     nodes
 }
@@ -103,7 +103,6 @@ async fn read_workspace(workspace_path: String) -> Result<String, String> {
         return Err("Workspace does not exist".into());
     }
     
-    // ensure .assets exists
     let assets_dir = path.join(".assets");
     if !assets_dir.exists() {
         let _ = fs::create_dir_all(&assets_dir);
@@ -122,7 +121,6 @@ async fn read_page(workspace_path: String, page_id: String) -> Result<String, St
 
     let content = fs::read_to_string(&file_path).map_err(|e| e.to_string())?;
     
-    // Parse frontmatter
     let matter = Matter::<YAML>::new();
     let parsed = matter.parse(&content);
     
@@ -131,13 +129,13 @@ async fn read_page(workspace_path: String, page_id: String) -> Result<String, St
     let mut cover = "".to_string();
 
     if let Some(data) = parsed.data {
-        if let Some(t) = data["title"].as_string() {
+        if let Ok(t) = data["title"].as_string() {
             title = t;
         }
-        if let Some(i) = data["icon"].as_string() {
+        if let Ok(i) = data["icon"].as_string() {
             icon = i;
         }
-        if let Some(c) = data["cover"].as_string() {
+        if let Ok(c) = data["cover"].as_string() {
             cover = c;
         }
     }
@@ -161,7 +159,6 @@ async fn save_page(
 ) -> Result<String, String> {
     let file_path = Path::new(&workspace_path).join(format!("{}.md", page_id));
     
-    // Build the pure markdown file with YAML frontmatter
     let frontmatter = format!(
         "---\ntitle: \"{}\"\nicon: \"{}\"\ncover: \"{}\"\n---\n\n{}",
         title.replace("\"", "\\\""),
@@ -321,8 +318,6 @@ async fn save_asset_bytes(
 
     fs::write(&target_file, &bytes).map_err(|e| e.to_string())?;
 
-    // Return custom protocol URL
-    // We register the `asset` protocol to read from workspace/.assets
     let asset_url = format!("asset://localhost/.assets/{}", safe_name);
 
     let res = OperationResult {
@@ -338,7 +333,7 @@ async fn save_asset_bytes(
 fn main() {
     Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(generate_handler![
+        .invoke_handler(tauri::generate_handler![
             select_workspace,
             read_workspace,
             read_page,
@@ -348,10 +343,6 @@ fn main() {
             delete_page,
             save_asset_bytes
         ])
-        // To handle asset://localhost/... 
-        // Tauri v2 custom protocol requires some specific setup
-        // But for simplicity, we can also just use the default capabilities
-        // and standard local fetching, but let's just stick with invoke_handler for now.
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

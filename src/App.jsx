@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
 import SearchModal from './components/SearchModal';
 import { 
-  FolderOpen, 
-  Settings, 
-  Search, 
-  Sun, 
-  Moon, 
+  Minus, 
+  Square, 
+  X, 
   Loader2, 
   FileText,
-  X
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 
 export default function App() {
@@ -23,6 +23,7 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isLoadingPage, setIsLoadingPage] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -34,33 +35,33 @@ export default function App() {
     localStorage.setItem('voidpad_dark_mode', isDarkMode);
   }, [isDarkMode]);
 
-  const refreshWorkspace = async () => {
+  const refreshWorkspace = useCallback(async () => {
     if (!workspacePath) return;
     try {
-      // Returns a JSON string of the tree
       const treeJson = await invoke('read_workspace', { workspacePath });
       const tree = JSON.parse(treeJson);
       setPagesTree(tree);
-      
-      if (!activePageId && tree.length > 0) {
-        const firstPage = findFirstPage(tree);
-        if (firstPage) {
-          handleSelectPage(firstPage.id);
-        }
-      }
     } catch (error) {
       console.error('Failed to read workspace:', error);
     }
-  };
+  }, [workspacePath]);
 
   useEffect(() => {
     refreshWorkspace();
-  }, [workspacePath]);
+  }, [refreshWorkspace]);
+
+  // Auto-select first page when workspace loads
+  useEffect(() => {
+    if (!activePageId && pagesTree.length > 0) {
+      const firstPage = findFirstPage(pagesTree);
+      if (firstPage) handleSelectPage(firstPage.id);
+    }
+  }, [pagesTree]);
 
   const findFirstPage = (nodes) => {
     for (const node of nodes) {
       if (node.type === 'page') return node;
-      if (node.children && node.children.length > 0) {
+      if (node.children?.length > 0) {
         const found = findFirstPage(node.children);
         if (found) return found;
       }
@@ -74,10 +75,32 @@ export default function App() {
         e.preventDefault();
         setSearchOpen(prev => !prev);
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault();
+        setSidebarCollapsed(prev => !prev);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Window control handlers
+  const handleMinimize = async () => {
+    try { await getCurrentWindow().minimize(); } catch(e) {}
+  };
+  const handleMaximize = async () => {
+    try {
+      const win = getCurrentWindow();
+      if (await win.isMaximized()) {
+        await win.unmaximize();
+      } else {
+        await win.maximize();
+      }
+    } catch(e) {}
+  };
+  const handleClose = async () => {
+    try { await getCurrentWindow().close(); } catch(e) {}
+  };
 
   const handleSelectWorkspace = async () => {
     try {
@@ -97,7 +120,6 @@ export default function App() {
     if (!workspacePath) return;
     setIsLoadingPage(true);
     try {
-      // Expecting { title, metadata: { icon, cover }, markdownText }
       const dataStr = await invoke('read_page', { workspacePath, pageId });
       const data = JSON.parse(dataStr);
       setActivePageId(pageId);
@@ -132,10 +154,7 @@ export default function App() {
         await refreshWorkspace();
         if (activePageId === pageId) {
           setActivePageId(result.newPageId);
-          setActivePageData(prev => ({
-            ...prev,
-            title: newName
-          }));
+          setActivePageData(prev => ({ ...prev, title: newName }));
         }
       }
     } catch (error) {
@@ -160,7 +179,6 @@ export default function App() {
     }
   };
 
-  // The editor now only gives us markdownText to save (no JSON blocks anymore!)
   const handleSavePage = async (title, markdownText, metadata) => {
     if (!workspacePath || !activePageId) return;
     try {
@@ -171,13 +189,7 @@ export default function App() {
         markdownText, 
         metadata 
       });
-      setActivePageData(prev => ({
-        ...prev,
-        title,
-        metadata,
-        markdownText
-      }));
-      // Only refresh sidebar if title actually changed
+      setActivePageData(prev => ({ ...prev, title, metadata, markdownText }));
       if (activePageData?.title !== title) {
         await refreshWorkspace();
       }
@@ -195,19 +207,35 @@ export default function App() {
     setSettingsOpen(false);
   };
 
+  // Window controls component
+  const WindowControls = () => (
+    <div className="window-controls">
+      <button className="window-control-btn" onClick={handleMinimize} title="Minimize">
+        <Minus size={14} />
+      </button>
+      <button className="window-control-btn" onClick={handleMaximize} title="Maximize">
+        <Square size={12} />
+      </button>
+      <button className="window-control-btn close" onClick={handleClose} title="Close">
+        <X size={14} />
+      </button>
+    </div>
+  );
+
   if (!workspacePath) {
     return (
-      <div className="welcome-container" data-tauri-drag-region>
+      <div className="welcome-container">
         <div className="window-titlebar" data-tauri-drag-region>
-          <span>VoidPad</span> Desktop Notes
+          <span>VoidPad</span>
+          <WindowControls />
         </div>
         <div className="welcome-card">
           <div className="welcome-logo">VoidPad</div>
           <p className="welcome-subtitle">
-            A premium, completely offline, local-first Notion clone. All notes are saved on your computer in 100% standard Markdown format.
+            A fully offline, local-first workspace for your notes. Everything is saved as standard Markdown on your computer.
           </p>
           <button className="btn-primary" onClick={handleSelectWorkspace}>
-            Select Workspace Folder
+            Open Workspace Folder
           </button>
         </div>
       </div>
@@ -217,7 +245,8 @@ export default function App() {
   return (
     <div className="app-container">
       <div className="window-titlebar" data-tauri-drag-region>
-        <span>VoidPad</span> — {workspacePath.split(/[\\/]/).pop()}
+        <div />
+        <WindowControls />
       </div>
 
       <Sidebar 
@@ -225,6 +254,7 @@ export default function App() {
         activePageId={activePageId}
         workspaceName={workspacePath.split(/[\\/]/).pop()}
         isDarkMode={isDarkMode}
+        collapsed={sidebarCollapsed}
         onSelectPage={handleSelectPage}
         onCreatePage={handleCreatePage}
         onRenamePage={handleRenamePage}
@@ -232,13 +262,24 @@ export default function App() {
         onToggleTheme={() => setIsDarkMode(prev => !prev)}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
+        onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
       />
+
+      {/* Sidebar toggle button (visible when collapsed) */}
+      <button 
+        className="sidebar-toggle-btn"
+        onClick={() => setSidebarCollapsed(prev => !prev)}
+        title="Toggle Sidebar (Ctrl+\\)"
+        style={{ left: sidebarCollapsed ? 8 : `calc(var(--sidebar-width) - 32px)` }}
+      >
+        {sidebarCollapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={14} />}
+      </button>
 
       <div className="editor-panel">
         {isLoadingPage ? (
-          <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10 }}>
-            <Loader2 className="animate-spin" size={32} color="var(--accent-color)" />
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Loading page...</span>
+          <div className="empty-state">
+            <Loader2 className="animate-spin" size={28} color="var(--accent-color)" />
+            <p>Loading page...</p>
           </div>
         ) : activePageId && activePageData ? (
           <Editor 
@@ -248,19 +289,16 @@ export default function App() {
             initialTitle={activePageData.title}
             initialMarkdown={activePageData.markdownText}
             initialMetadata={activePageData.metadata}
+            isDarkMode={isDarkMode}
             onSave={handleSavePage}
           />
         ) : (
-          <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 15, padding: 40, textAlign: 'center' }}>
-            <FileText size={48} color="var(--border-color)" />
-            <div>
-              <h2 style={{ fontFamily: 'Outfit, sans-serif', fontSize: '20px', fontWeight: 600, marginBottom: 6 }}>No Page Selected</h2>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: 300 }}>
-                Select a page from the sidebar explorer or create a new one to begin writing.
-              </p>
-            </div>
-            <button className="btn-secondary" onClick={() => handleCreatePage(null)}>
-              + Create New Page
+          <div className="empty-state">
+            <FileText size={40} color="var(--border-color)" strokeWidth={1.5} />
+            <h2>No Page Selected</h2>
+            <p>Select a page from the sidebar or create a new one to start writing.</p>
+            <button className="btn-primary" onClick={() => handleCreatePage(null)} style={{ marginTop: 8 }}>
+              + New Page
             </button>
           </div>
         )}
@@ -281,35 +319,28 @@ export default function App() {
         <div className="modal-overlay" onClick={() => setSettingsOpen(false)}>
           <div className="settings-modal" onClick={e => e.stopPropagation()}>
             <div className="settings-header">
-              <span>Workspace Settings</span>
-              <button className="sidebar-menu-btn" onClick={() => setSettingsOpen(false)}>
+              <span>Settings</span>
+              <button className="sidebar-icon-btn" onClick={() => setSettingsOpen(false)}>
                 <X size={16} />
               </button>
             </div>
             
             <div className="settings-row">
-              <label>Current Folder Path</label>
+              <label>Workspace</label>
               <div className="settings-input-group">
-                <input 
-                  type="text" 
-                  className="settings-input" 
-                  value={workspacePath} 
-                  readOnly 
-                />
-                <button className="btn-secondary" onClick={handleSelectWorkspace}>
-                  Change
-                </button>
+                <input type="text" className="settings-input" value={workspacePath} readOnly />
+                <button className="btn-secondary" onClick={handleSelectWorkspace}>Change</button>
               </div>
             </div>
 
-            <div className="settings-row" style={{ marginTop: 10 }}>
-              <label>Database Actions</label>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 10 }}>
-                Disconnecting will remove the workspace configuration folder connection. Your pure Markdown notes will remain untouched on your local disk.
+            <div className="settings-row">
+              <label>Actions</label>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.4 }}>
+                Disconnecting removes the link to this folder. Your Markdown files remain untouched.
               </p>
               <button 
                 className="btn-secondary" 
-                style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                style={{ color: 'var(--red)', borderColor: 'rgba(235, 87, 87, 0.2)' }}
                 onClick={handleDisconnectWorkspace}
               >
                 Disconnect Workspace

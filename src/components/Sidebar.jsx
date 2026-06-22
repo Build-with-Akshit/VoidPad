@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  Folder, 
   ChevronRight, 
   Plus, 
   Trash2, 
@@ -9,9 +8,9 @@ import {
   Settings, 
   Sun, 
   Moon, 
-  FileText,
   Check,
-  X
+  X,
+  ChevronsLeft
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -19,13 +18,15 @@ export default function Sidebar({
   activePageId,
   workspaceName,
   isDarkMode,
+  collapsed,
   onSelectPage,
   onCreatePage,
   onRenamePage,
   onDeletePage,
   onToggleTheme,
   onOpenSearch,
-  onOpenSettings
+  onOpenSettings,
+  onToggleCollapse
 }) {
   const [expandedNodes, setExpandedNodes] = useState({});
   const [editingNodeId, setEditingNodeId] = useState(null);
@@ -33,10 +34,7 @@ export default function Sidebar({
 
   const toggleExpand = (nodeId, e) => {
     e.stopPropagation();
-    setExpandedNodes(prev => ({
-      ...prev,
-      [nodeId]: !prev[nodeId]
-    }));
+    setExpandedNodes(prev => ({ ...prev, [nodeId]: !prev[nodeId] }));
   };
 
   const startRename = (node, e) => {
@@ -54,13 +52,11 @@ export default function Sidebar({
   const submitRename = (nodeId, e) => {
     e.stopPropagation();
     const trimmed = renameValue.trim();
-    if (trimmed && trimmed !== '') {
-      onRenamePage(nodeId, trimmed);
-    }
+    if (trimmed) onRenamePage(nodeId, trimmed);
     setEditingNodeId(null);
   };
 
-  const renderTree = (nodes) => {
+  const renderTree = (nodes, depth = 0) => {
     return nodes.map(node => {
       const isExpanded = !!expandedNodes[node.id];
       const isActive = activePageId === node.id;
@@ -72,103 +68,66 @@ export default function Sidebar({
           <div 
             className={`tree-node-content ${isActive ? 'active' : ''}`}
             onClick={() => node.type === 'page' && onSelectPage(node.id)}
+            onDoubleClick={(e) => startRename(node, e)}
+            style={{ paddingLeft: `${8 + depth * 0}px` }}
           >
-            {/* Toggle Arrow (Only show if node has children or is a folder) */}
             <div 
               className={`tree-node-arrow ${isExpanded ? 'expanded' : ''}`}
               onClick={(e) => toggleExpand(node.id, e)}
-              style={{ visibility: (hasChildren || node.type === 'folder') ? 'visible' : 'hidden' }}
+              style={{ visibility: hasChildren ? 'visible' : 'hidden' }}
             >
-              <ChevronRight size={14} />
+              <ChevronRight size={12} />
             </div>
 
-            {/* Icon */}
             <span className="tree-node-icon">
-              {node.type === 'folder' ? <Folder size={14} color="var(--accent-color)" /> : '📄'}
+              {node.type === 'folder' ? '📁' : '📄'}
             </span>
 
-            {/* Name/Edit Input */}
             {isEditing ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3, flex: 1 }} onClick={e => e.stopPropagation()}>
                 <input
                   type="text"
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
                   className="settings-input"
-                  style={{ padding: '2px 6px', fontSize: '12px', height: '24px' }}
+                  style={{ padding: '2px 6px', fontSize: '13px', height: '22px' }}
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') submitRename(node.id, e);
                     if (e.key === 'Escape') cancelRename(e);
                   }}
+                  onBlur={() => cancelRename()}
                 />
-                <button 
-                  className="tree-action-btn" 
-                  onClick={(e) => submitRename(node.id, e)}
-                  style={{ color: '#10b981' }}
-                >
-                  <Check size={12} />
-                </button>
-                <button 
-                  className="tree-action-btn" 
-                  onClick={cancelRename}
-                  style={{ color: '#ef4444' }}
-                >
-                  <X size={12} />
+                <button className="tree-action-btn" onClick={(e) => submitRename(node.id, e)} style={{ color: 'var(--green)' }}>
+                  <Check size={11} />
                 </button>
               </div>
             ) : (
               <span className="tree-node-name">{node.name}</span>
             )}
 
-            {/* Actions Hover Panel */}
             {!isEditing && (
               <div className="tree-node-actions" onClick={e => e.stopPropagation()}>
-                {/* Create sub-page button */}
-                <button 
-                  className="tree-action-btn" 
-                  onClick={() => onCreatePage(node.id)}
-                  title="Create Subpage"
-                >
+                <button className="tree-action-btn" onClick={() => onCreatePage(node.id)} title="Add sub-page">
                   <Plus size={12} />
                 </button>
-                
-                {/* Rename button */}
-                <button 
-                  className="tree-action-btn" 
-                  onClick={(e) => startRename(node, e)}
-                  title="Rename"
-                >
-                  <Edit3 size={12} />
+                <button className="tree-action-btn" onClick={(e) => startRename(node, e)} title="Rename">
+                  <Edit3 size={11} />
                 </button>
-
-                {/* Delete/Trash button */}
                 <button 
                   className="tree-action-btn" 
-                  onClick={() => {
-                    if (confirm(`Move "${node.name}" to Recycle Bin?`)) {
-                      onDeletePage(node.id);
-                    }
-                  }}
+                  onClick={() => { if (confirm(`Move "${node.name}" to Recycle Bin?`)) onDeletePage(node.id); }}
                   title="Delete"
-                  style={{ hover: { color: '#ef4444' } }}
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={11} />
                 </button>
               </div>
             )}
           </div>
 
-          {/* Sub-nodes Recursive Render */}
-          {isExpanded && (node.children || node.type === 'folder') && (
+          {isExpanded && hasChildren && (
             <div className="tree-children">
-              {hasChildren ? (
-                renderTree(node.children)
-              ) : (
-                <div style={{ padding: '6px 20px', fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  No subpages
-                </div>
-              )}
+              {renderTree(node.children, depth + 1)}
             </div>
           )}
         </div>
@@ -177,60 +136,54 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="sidebar">
-      {/* Search Header */}
+    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
-        <div className="sidebar-logo">
+        <div className="sidebar-logo" onClick={onOpenSettings}>
           <div className="sidebar-logo-icon">V</div>
-          <span>VoidPad</span>
+          <span>{workspaceName || 'VoidPad'}</span>
         </div>
-        <button className="sidebar-menu-btn" onClick={onOpenSearch} title="Search Notes (Ctrl+P)">
-          <Search size={16} />
-        </button>
+        <div className="sidebar-actions">
+          <button className="sidebar-icon-btn" onClick={onOpenSearch} title="Search (Ctrl+P)">
+            <Search size={15} />
+          </button>
+          <button className="sidebar-icon-btn" onClick={onToggleCollapse} title="Collapse sidebar (Ctrl+\\)">
+            <ChevronsLeft size={15} />
+          </button>
+        </div>
       </div>
 
-      {/* Pages Section */}
       <div className="sidebar-scrollable">
         <div className="sidebar-section-title">
-          <span>Notes Explorer</span>
-          <button 
-            className="tree-action-btn" 
-            onClick={() => onCreatePage(null)}
-            title="Create Root Page"
-            style={{ padding: 0 }}
-          >
+          <span>Pages</span>
+          <button className="tree-action-btn" onClick={() => onCreatePage(null)} title="New page" style={{ padding: 0 }}>
             <Plus size={14} />
           </button>
         </div>
         
-        <div style={{ marginTop: '8px' }}>
+        <div>
           {pagesTree.length > 0 ? (
             renderTree(pagesTree)
           ) : (
-            <div style={{ padding: '20px 8px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-              No notes created yet.<br/>
-              Click the <Plus size={10} style={{ display: 'inline' }} /> icon above to create one!
+            <div style={{ padding: '24px 8px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
+              No pages yet
             </div>
           )}
         </div>
       </div>
 
-      {/* Footer controls */}
+      {/* New Page button at bottom */}
+      <button className="sidebar-new-page-btn" onClick={() => onCreatePage(null)}>
+        <Plus size={16} />
+        New page
+      </button>
+
       <div className="sidebar-footer">
-        <div className="user-workspace-indicator">
-          <span className="workspace-label">Workspace</span>
-          <span className="workspace-name" title={workspaceName}>{workspaceName}</span>
-        </div>
-
-        <div style={{ display: 'flex', gap: '6px' }}>
-          {/* Light/Dark Toggle */}
-          <button className="sidebar-menu-btn" onClick={onToggleTheme} title="Toggle Theme">
-            {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button className="sidebar-icon-btn" onClick={onToggleTheme} title="Toggle theme">
+            {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-
-          {/* Settings Trigger */}
-          <button className="sidebar-menu-btn" onClick={onOpenSettings} title="Settings">
-            <Settings size={15} />
+          <button className="sidebar-icon-btn" onClick={onOpenSettings} title="Settings">
+            <Settings size={14} />
           </button>
         </div>
       </div>
